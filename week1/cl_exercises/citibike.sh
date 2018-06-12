@@ -25,6 +25,6 @@ cut -d, -f12 201402_trip_data.csv | tail -n +2 | sort | uniq -c | sort -nr | hea
 cut -d, -f14,15 201402_trip_data.csv | tail -n +2 | sort | uniq -c | head -n -1
 
 # count the number of trips that start on cross streets that both contain numbers (e.g., "1 Ave & E 15 St", "E 39 St & 2 Ave", ...)
-cut -d, -f5,9 201402_trip_data.csv | tail -n +2 | grep '[0-9][0-9]*.* & .*[0-9][0-9]*' | wc -l
+cut -d, -f5,9 201402_trip_data.csv | tail -n +2 | grep '[0-9].*&.*[0-9]' | wc -l
 
 # compute the average trip duration
