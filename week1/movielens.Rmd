@@ -56,12 +56,19 @@ ratings %>%
 ```{r dist-movie-popularity}
 # plot distribution of movie popularity (= number of ratings the movie received)
 # hint: try scale_x_log10() for a logarithmic x axis
+#ratings %>%
+#  group_by(movie_id) %>%
+#  summarize(num_movies = n()) %>%
+#  mutate(rank = rank(-num_movies, ties.method = "first")) %>%
+#  ggplot() +
+#  geom_bar(aes(x = rank, y = num_movies), stat="identity")
+
 ratings %>%
   group_by(movie_id) %>%
-  summarize(num_movies = n()) %>%
-  mutate(rank = rank(-num_movies, ties.method = "first")) %>%
+  summarize(num_movies = n()) 
   ggplot() +
-  geom_bar(aes(x = rank, y = num_movies), stat="identity")
+  geom_histogram(aes(x = num_movies)) +
+  scale_x_log10()
 
 ```
 
@@ -108,13 +115,21 @@ ratings %>%
 ```{r dist-user-activity}
 # plot distribution of user activity (= number of ratings the user made)
 # hint: try a log scale here
+#ratings %>%
+#  mutate(date = as.Date(as.POSIXct(timestamp, origin="1970-01-01"))) %>%
+#  group_by(date) %>%
+#  summarize(num_ratings = n()) %>%
+#  ggplot() +
+#  geom_line(aes(x = date, y = num_ratings)) +
+#  scale_y_log10()
+
 ratings %>%
-  mutate(date = as.Date(as.POSIXct(timestamp, origin="1970-01-01"))) %>%
-  group_by(date) %>%
+  group_by(user_id) %>%
   summarize(num_ratings = n()) %>%
+  filter(num_ratings < quantile(num_ratings, .99)) %>%
   ggplot() +
-  geom_line(aes(x = date, y = num_ratings)) +
-  scale_y_log10()
+  geom_histogram(aes(x = num_ratings)) +
+  scale_x_log10()
 
 ```
 
