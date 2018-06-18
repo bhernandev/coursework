@@ -1,0 +1,49 @@
+---
+title: "Diamonds sizes"
+author: "Brian Hernandez"
+date: "June 15, 2018"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+library(ggplot2)
+library(dplyr)
+
+knitr::opts_chunk$set(
+  echo = FALSE
+)
+
+smaller <- diamonds %>% 
+  filter(carat <= 2.5)
+```
+
+We have data about `r nrow(diamonds)` diamonds. Only 
+`r nrow(diamonds) - nrow(smaller)` are larger than
+2.5 carats. The distribution of the remainder is shown
+below:
+
+```{r, echo = FALSE}
+smaller %>% 
+  ggplot(aes(carat)) + 
+  geom_freqpoly(binwidth = 0.01)
+```
+
+In the above figure it can be observed that there is some sort of an oscillating pattern within the number of observations with respect to the carat of the diamonds. This can likely be attributed to most diamond appraisers having a significant preference toward half measures. Another observation to make is that the number of observations with respect to carat have a clear negative trend that can be attributed to the increasing rarity of such diamonds.
+
+```{r}
+smaller %>%
+  ggplot(aes(carat, color=cut)) +
+  geom_freqpoly(binwidth = 0.01)
+```
+
+```{r}
+smaller %>%
+  ggplot(aes(carat, color=color)) +
+  geom_freqpoly(binwidth = 0.01)
+```
+
+```{r}
+smaller %>%
+  ggplot(aes(carat, color=clarity)) +
+  geom_freqpoly(binwidth = 0.01)
+```

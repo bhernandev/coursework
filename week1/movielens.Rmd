@@ -16,6 +16,7 @@ library(knitr)
 
 # set plot theme
 theme_set(theme_bw())
+
 ```
 
 # Load and preview data
@@ -89,4 +90,37 @@ head(ratings) %>% kable()
 # paper, produce one curve for the 100% user satisfaction level and
 # another for 90%---do not, however, bother implementing the null
 # model (shown in the dashed lines).
+ 
+movie_pop <- ratings %>%
+  group_by(movie_id)%>%
+  summarize(num_ratings = n()) %>%
+  arrange(desc(num_ratings)) %>%
+  mutate(rank = row_number())
+
+ratings_pop <- inner_join(ratings, movie_pop, by = 'movie_id')
+
+satisfaction_90 <- ratings_pop %>%
+  group_by(user_id) %>%
+  summarize(cutoff = quantile(rank, .9)) %>%
+  group_by(cutoff) %>%
+  summarize(num_users = n()) %>%
+  arrange(cutoff) %>%
+  mutate(c_sum = cumsum(num_users)) %>%
+  mutate(frac_users = c_sum/last(c_sum)) %>%
+  mutate(origin = "Satisfaction 90")
+
+satisfaction_100 <- ratings_pop %>%
+  group_by(user_id) %>%
+  summarize(cutoff = max(rank)) %>%
+  group_by(cutoff) %>%
+  summarize(num_users = n()) %>%
+  arrange(cutoff) %>%
+  mutate(c_sum = cumsum(num_users)) %>%
+  mutate(frac_users = c_sum/last(c_sum)) %>%
+  mutate(origin = "Satisfaction 100")
+  
+bind_rows(satisfaction_90, satisfaction_100) %>%
+  ggplot() +
+  geom_line(aes(x=cutoff, y=frac_users, color=origin))
+
 ```
