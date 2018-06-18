@@ -36,6 +36,11 @@ head(ratings) %>% kable()
 
 ```{r dist-ratings}
 # plot the distribution of rating values (slide 21)
+ratings %>%
+  group_by(rating) %>%
+  ggplot() +
+  geom_bar(aes(x = rating)) +
+  scale_y_continuous(label=comma)
 ```
 
 ## Per-movie stats
@@ -43,16 +48,33 @@ head(ratings) %>% kable()
 ```{r aggregate-by-movie}
 # aggregate ratings by movie, computing mean and number of ratings
 # hint: use the n() function for easy counting within a group
+ratings %>%
+  group_by(movie_id) %>%
+  summarize(num_ratings = n(), avg_rating = mean(rating))
 ```
 
 ```{r dist-movie-popularity}
 # plot distribution of movie popularity (= number of ratings the movie received)
 # hint: try scale_x_log10() for a logarithmic x axis
+ratings %>%
+  group_by(movie_id) %>%
+  summarize(num_movies = n()) %>%
+  mutate(rank = rank(-num_movies, ties.method = "first")) %>%
+  ggplot() +
+  geom_bar(aes(x = rank, y = num_movies), stat="identity")
+
 ```
 
 ```{r dist-mean-ratings-by-movie}
 # plot distribution of mean ratings by movie (slide 23)
 # hint: try geom_histogram and geom_density
+ratings %>%
+  group_by(movie_id) %>%
+  summarize(mean_rating = mean(rating)) %>%
+  group_by(mean_rating) %>%
+  ggplot() +
+  geom_density(aes(x = mean_rating), fill="black")
+
 ```
 
 ```{r cdf-movie-pop}
@@ -61,6 +83,15 @@ head(ratings) %>% kable()
 # store the result in a new data frame so you can use it in creating figure 2 from the paper below
 
 # plot the CDF of movie popularity
+ratings %>%
+  group_by(movie_id) %>%
+  summarize(num_movies = n()) %>%
+  mutate(rank = rank(-num_movies, ties.method = "first")) %>%
+  arrange(rank) %>%
+  mutate(c_sum = cumsum(num_movies), CDF = (c_sum/last(c_sum)) * 100) %>%
+  ggplot() +
+  geom_line(aes(x = rank, y = CDF))
+
 ```
 
 
@@ -68,11 +99,23 @@ head(ratings) %>% kable()
 
 ```{r aggregate-by-user}
 # aggregate ratings by user, computing mean and number of ratings
+ratings %>%
+  group_by(user_id) %>%
+  summarize(mean_rating = mean(rating), num_ratings = n())
+
 ```
 
 ```{r dist-user-activity}
 # plot distribution of user activity (= number of ratings the user made)
 # hint: try a log scale here
+ratings %>%
+  mutate(date = as.Date(as.POSIXct(timestamp, origin="1970-01-01"))) %>%
+  group_by(date) %>%
+  summarize(num_ratings = n()) %>%
+  ggplot() +
+  geom_line(aes(x = date, y = num_ratings)) +
+  scale_y_log10()
+
 ```
 
 # Anatomy of the long tail
