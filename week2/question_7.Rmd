@@ -1,0 +1,35 @@
+---
+title: "Question Seven"
+author: "Brian Hernandez"
+date: "June 18, 2018"
+output: html_document
+---
+
+``` {r}
+library(dplyr)
+pop2 <- read.csv('pop2.csv')
+str(pop2)
+head(pop2)
+ 
+# Compute the population average of the variable “bmi”.
+mean(pop2$bmi)
+ 
+# Compute the population standard deviation of the variable “bmi”.
+sd(pop2$bmi)
+ 
+# Compute the expectation of the sampling distribution for the sample average of the variable.
+estimate_mean <- function(n){
+  mean(sample(pop2$bmi, n))
+}
+mean(replicate(1e3, estimate_mean(150)))
+
+# Compute the standard deviation of the sampling distribution for the sample average of the variable.
+sd(replicate(1e3, estimate_mean(150)))
+
+# Identify, using simulations, the central region that contains 80% of the sampling distribution of the sample average.
+quantile(replicate(1e3, estimate_mean(150)), probs = c(.1, .9))
+
+# Identify, using the Central Limit Theorem, an approximation of the central region that contains 80% of the sampling distribution of the sample average.
+qnorm(c(.1, .9), mean = mean(replicate(1e3, estimate_mean(150))), sd = sd(replicate(1e3, estimate_mean(150))))
+
+```

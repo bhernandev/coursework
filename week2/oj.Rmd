@@ -1,0 +1,121 @@
+---
+title: "oj"
+author: "Brian Hernandez"
+date: "June 19, 2018"
+output: html_document
+---
+
+```{r setup, include=False}
+  oj <- read.csv("oj.csv")
+  library(tidyverse)
+  library(ggplot2)
+
+```
+
+``` {r price-visual}
+
+  # Make a box plot of price
+  oj %>%
+    ggplot(aes("Overall", logmove)) +
+    geom_boxplot()
+  
+```
+
+``` {r price-log}
+  
+  # Make a box plot of the log price
+  oj %>%
+    mutate(log_price = log(price)) %>%
+    ggplot(aes(x = "Overall", y = log_price)) +
+    geom_boxplot()
+
+```
+
+``` {r price-brand}
+  
+  # Make a box plot of the price by brannd
+  oj %>%
+    ggplot(aes(x = factor(brand), y = price)) +
+    geom_boxplot(aes(fill = factor(brand)))
+
+```
+
+``` {r price-log-brand}
+  
+  # Make a box plot of the log price by brand
+  oj %>%
+    mutate(log_price = log(price)) %>%
+    ggplot(aes(x = factor(brand), y = log_price)) +
+    geom_boxplot(aes(fill = factor(brand)))
+
+```
+
+``` {r logmove-logprice}
+
+  # Make a plot of logmove vs logprice
+  oj %>%
+    mutate(log_price = log(price)) %>%
+    ggplot(aes(logmove, log_price)) +
+    geom_point(aes(color = brand)) +
+    geom_abline(intercept = 1.6757, slope = -0.1252) +
+    geom_abline(intercept = 1.9757, slope = -0.1252) +
+    geom_abline(intercept = 2.1757, slope = -0.1252)
+
+```
+
+``` {r regression}
+  
+  # Estimate the relationship between logmove and logprice changing intercepts
+  oj %>%
+    mutate(log_price = log(price)) %>%
+    lm(formula = log_price ~ logmove + brand) %>%
+    summary()
+
+  # Estimate the relationship between logmove and logprice changing slopes
+  oj %>%
+    mutate(log_price = log(price)) %>%
+    lm(formula = log_price ~ logmove*brand) %>%
+    summary()
+  
+  # Superstar exercise
+  train_set <- oj[sample(1:nrow(oj), nrow(oj) * .8, replace=FALSE),]
+  test_set <- setdiff(oj, test_set)
+  y_hat <- test_set %>% 
+    mutate(log_price = log(price)) %>%
+    lm(formula = log_price ~ logmove*brand) %>%
+    predict(newx = test_set)
+
+```
+
+``` {r feature-impact}
+
+  # Show which brand is featured the most
+  oj %>%
+    filter(feat == 1) %>%
+    ggplot() + 
+    geom_histogram(aes(x = factor(brand), fill = brand), stat = "count")
+
+  # Average price and featured rate by brand
+  oj %>%
+    group_by(brand) %>%
+    summarize(avg_price = mean(price))
+
+  # Regression with feature
+  oj %>%
+    mutate(log_price = log(price)) %>%
+    lm(formula = logmove ~ log_price*brand + feat) %>%
+    summary()
+  
+  # Regression with feature & price sensitivity
+  oj %>%
+    mutate(log_price = log(price)) %>%
+    lm(formula = logmove ~ log_price*brand + log_price*feat) %>%
+    summary()
+  
+  # Regression with feature & price sensitivity & sociodemographic factors
+  oj %>%
+    mutate(log_price = log(price)) %>%
+    lm(formula = logmove ~ log_price*brand + log_price*feat +  INCOME + AGE60) %>%
+    summary()
+  
+```
