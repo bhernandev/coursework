@@ -65,7 +65,7 @@ ratings %>%
 
 ratings %>%
   group_by(movie_id) %>%
-  summarize(num_movies = n()) 
+  summarize(num_movies = n()) %>%
   ggplot() +
   geom_histogram(aes(x = num_movies)) +
   scale_x_log10()
