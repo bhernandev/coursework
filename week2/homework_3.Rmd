@@ -1,0 +1,84 @@
+---
+title: "homework_3"
+author: "Brian Hernandez"
+date: "June 20, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+setwd("C:/Users/Brian Hernandez/Projects/ds3/coursework/week2")
+oj <- read.csv("oj.csv")
+
+```
+
+## Demographics vs Demand
+
+```{r dvd}
+
+lm(formula = logmove ~ log(price)*brand*feat, data = oj) %>% 
+  summary()
+
+lm(formula = logmove ~ log(price)*brand*feat + AGE60 + EDUC + ETHNIC + INCOME + HHLARGE + WORKWOM + HVAL150, data = oj) %>% 
+  summary()
+
+```
+All of the features are statistically significant.
+
+The R-squared increases by .05
+
+## Household income and Education with respect to Quantity
+
+``` {r hval_educ}
+
+summary(oj$HVAL150)
+
+regression_demo <- lm(formula = logmove ~ log(price)*brand*feat + AGE60 + EDUC + ETHNIC + INCOME + HHLARGE + WORKWOM + HVAL150, data = oj)
+exp(coef(regression_demo)["HVAL150"] * (summary(oj$HVAL150)["3rd Qu."] - summary(oj$HVAL150)["Median"]))
+exp(coef(regression_demo)["EDUC"] * (summary(oj$EDUC)["3rd Qu."] - summary(oj$EDUC)["Median"]))
+
+```
+
+## Household income and Education with respect to Quantity including Interaction
+
+``` {r hval_educ_interaction}
+
+regression_demo_interaction <-lm(formula = logmove ~ log(price)*brand*feat + AGE60 + ETHNIC + INCOME + HHLARGE + WORKWOM + log(price)*HVAL150 + log(price)*EDUC, data = oj)
+coef(regression_demo_interaction)["log(price):HVAL150"]
+coef(regression_demo_interaction)["log(price):EDUC"]
+exp(coef(regression_demo_interaction)["log(price):HVAL150"] * (summary(oj$HVAL150)["3rd Qu."] - summary(oj$HVAL150)["Median"]))
+exp(coef(regression_demo_interaction)["log(price):EDUC"] * (summary(oj$EDUC)["3rd Qu."] - summary(oj$EDUC)["Median"]))
+
+```
+
+These results are in line with intuition since the sensitivity to price is reduced when there is a greater percentage of higher income households and the sensitivity to price is increased when there is a greater level of education.
+
+The coefficient for HVAL150 for this regression is `r coef(regression_demo_interaction)["log(price):HVAL150"]`
+The coefficient for EDUC for this regression is `r coef(regression_demo_interaction)["log(price):EDUC"]`
+
+The change in elasticity with respect to HVAL150 and price is `r exp(coef(regression_demo_interaction)["log(price):HVAL150"] * (summary(oj$HVAL150)["3rd Qu."] - summary(oj$HVAL150)["Median"]))`
+The change in elasticity with respect to HVAL150 and price is `r exp(coef(regression_demo_interaction)["log(price):EDUC"] * (summary(oj$EDUC)["3rd Qu."] - summary(oj$EDUC)["Median"]))`
+
+*Based on these results in can be said that the level of education in a neighborhood is more important to price sensitivity than the household income*
+
+``` {r five_fold_cross_validation}
+
+set.seed(21)
+random_oj <- oj %>%
+  sample_n(nrow(oj))
+random_oj$id <- seq(1, nrow(oj))
+random_oj$assignment <- random_oj$id %% 5 + 1
+MSE <- c(1:5)
+
+for(i in 1:5){
+  test_set_i <- random_oj %>%
+    filter(assignment == i)
+  train_set_i <- anti_join(random_oj, test_set_i)
+  regression_demo <- lm(formula = logmove ~ log(price)*brand*feat + AGE60 + EDUC + ETHNIC + INCOME + HHLARGE + WORKWOM + HVAL150, data = train_set_i)
+  
+}
+
+
+```

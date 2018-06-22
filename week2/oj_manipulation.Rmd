@@ -1,0 +1,31 @@
+---
+title: "oj_manipulation"
+author: "Brian Hernandez"
+date: "June 20, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+setwd("C:/Users/Brian Hernandez/Projects/ds3/coursework/week2")
+oj <- read.csv("oj.csv")
+
+```
+
+``` {r oj_manipulation}
+
+oj_brand_price <- oj %>%
+  select(store, week, brand, price) %>%
+  spread(key = brand, value = price)
+
+oj_brand_price_qty <- merge(oj_brand_price, oj) %>%
+  select(store, week, dominicks, minute.maid, tropicana, brand, logmove)
+
+brand_interest <- "tropicana"
+oj_brand_price_qty %>%
+  filter(brand == brand_interest) %>%
+  lm(formula = logmove ~ log(dominicks) + log(minute.maid) + log(tropicana))
+
+```
