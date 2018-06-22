@@ -1,0 +1,180 @@
+---
+title: "bike_regression"
+author: "Brian Hernandez"
+date: "June 21, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+
+load('trips.RData')
+
+```
+
+## Bike Regression
+
+```{r bike_regression}
+
+set.seed(16)
+
+trips_with_weather <- inner_join(trips, weather)
+
+trips_count <- trips_with_weather %>%
+  group_by(date,tmin) %>%
+  summarize(num_trips = n()) %>%
+  ungroup()
+#random_trips_count <- sample_n(trips_count, nrow(trips_count))
+
+# Splitting data into train and test set
+train_set <- sample_n(trips_count, nrow(trips_count) * .8)
+test_set <- anti_join(trips_count, train_set)
+
+# Creating model and making predictions
+temperature_model <- lm(formula = num_trips ~ tmin, data = train_set)
+train_set$predictions <- predict(temperature_model, data = train_set)
+test_set$predictions <- predict(temperature_model, newdata = test_set)
+
+# Plotting predictions
+train_set %>%
+  gather(key = model, value = val, num_trips, predictions) %>%
+  ggplot() +
+  geom_point(aes(tmin, val, color=model))
+
+test_set %>%
+  gather(key = model, value = val, num_trips, predictions) %>%
+  ggplot() +
+  geom_point(aes(tmin, val, color=model))
+
+# R-squared
+cor(train_set$predictions, train_set$num_trips)^2
+cor(test_set$predictions, test_set$num_trips)^2
+
+# RMSE
+sqrt(mean((train_set$num_trips - train_set$predictions)^2))
+sqrt(mean((test_set$num_trips - test_set$predictions)^2))
+```
+
+```{r quadratic_model}
+
+# Data manipulation and splitting
+
+set.seed(16)
+
+trips_with_weather <- inner_join(trips, weather)
+
+trips_count <- trips_with_weather %>%
+  group_by(date,tmin) %>%
+  summarize(num_trips = n()) %>%
+  ungroup()
+
+# Splitting data into train and test set
+train_set <- sample_n(trips_count, nrow(trips_count) * .8)
+test_set <- anti_join(trips_count, train_set)
+
+# Quadratic Model and predictions
+quadratic_model <- lm(formula = num_trips ~ poly(tmin, 2), data = train_set)
+train_set$predictions <- predict(quadratic_model, data = train_set)
+test_set$predictions <- predict(quadratic_model, newdata = test_set)
+
+# Plotting predictions
+train_set %>%
+  gather(key = model, value = val, num_trips, predictions) %>%
+  ggplot() +
+  geom_point(aes(tmin, val, color=model))
+
+test_set %>%
+  gather(key = model, value = val, num_trips, predictions) %>%
+  ggplot() +
+  geom_point(aes(tmin, val, color=model))
+
+# R-squared
+cor(train_set$predictions, train_set$num_trips)^2
+cor(test_set$predictions, test_set$num_trips)^2
+
+# RMSE
+sqrt(mean((train_set$num_trips - train_set$predictions)^2))
+sqrt(mean((test_set$num_trips - test_set$predictions)^2))
+
+```
+
+```{r higher_order}
+
+# Data manipulation and splitting
+set.seed(16)
+trips_with_weather <- inner_join(trips, weather)
+trips_count <- trips_with_weather %>%
+  group_by(date,tmin) %>%
+  summarize(num_trips = n()) %>%
+  ungroup()
+
+# Splitting data into train and test set
+train_set <- sample_n(trips_count, nrow(trips_count) * .8)
+test_set <- anti_join(trips_count, train_set)
+
+
+train_cors <- rep(0, 10)
+test_cors <- rep(0, 10)
+# Higher Order Models
+for(i in 1:10){
+  curr_model <- lm(formula = num_trips ~ poly(tmin, i), data = train_set)
+  train_set$predictions <- predict(curr_model, data = train_set)
+  test_set$predictions <- predict(curr_model, newdata = test_set)
+  
+  # R-squared
+  train_cors[i] <- cor(train_set$predictions, train_set$num_trips)^2
+  test_cors[i] <- cor(test_set$predictions, test_set$num_trips)^2
+}
+
+model_data <- tibble(num = c(1:10), train = train_cors, test = test_cors) %>%
+  gather(key = dataset, value = r_squared, train, test)
+
+ggplot(data = model_data) +
+  geom_point(aes(x = num, y = r_squared, color = dataset))
+
+```
+
+``` {r fifth_order}
+
+# Data manipulation and splitting
+set.seed(16)
+
+trips_with_weather <- inner_join(trips, weather)
+
+trips_count <- trips_with_weather %>%
+  group_by(date,tmin) %>%
+  summarize(num_trips = n()) %>%
+  ungroup()
+
+# Splitting data into train and test set
+train_set <- sample_n(trips_count, nrow(trips_count) * .8)
+test_set <- anti_join(trips_count, train_set)
+
+# Fifth Order Model and predictions
+quadratic_model <- lm(formula = num_trips ~ poly(tmin, 5), data = train_set)
+train_set$predictions <- predict(quadratic_model, data = train_set)
+test_set$predictions <- predict(quadratic_model, newdata = test_set)
+
+# Plotting predictions
+train_set %>%
+  gather(key = model, value = val, num_trips, predictions) %>%
+  ggplot() +
+  geom_point(aes(tmin, val, color=model))
+
+test_set %>%
+  gather(key = model, value = val, num_trips, predictions) %>%
+  ggplot() +
+  geom_point(aes(tmin, val, color=model))
+
+# R-squared
+cor(train_set$predictions, train_set$num_trips)^2
+cor(test_set$predictions, test_set$num_trips)^2
+
+# RMSE
+sqrt(mean((train_set$num_trips - train_set$predictions)^2))
+sqrt(mean((test_set$num_trips - test_set$predictions)^2))
+
+```
