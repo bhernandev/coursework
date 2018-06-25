@@ -13,12 +13,15 @@ library(lubridate)
 library(glmnet)
 
 load('trips.RData')
+load('trips-2015.RData')
 
+weather_2015$ymd <- as.Date(weather_2015$date)
 trips_with_weather <- inner_join(trips, weather)
+trips_with_weather_2015 <- inner_join(trips_2015, weather_2015)
 
 ```
 
-#Feature Selection
+#Feature Selection and Model Creation/Evaluation
 
 ``` {r feature_selection}
 
@@ -28,10 +31,10 @@ trips_with_weather %>%
   group_by(ymd, month) %>%
   summarize(count = n()) %>%
   ggplot() +
-  geom_point(aes(x = day(ymd), y = count)) + 
-  facet_wrap(~ day)
+  geom_point(aes(x = day(ymd), y = count)) +
+  facet_wrap(~ month)
 
-# Creating new features to regress over
+# Creating new features to regress over for both 2014 and 2015
 trips_full <- trips_with_weather %>%
   group_by(ymd, tmin, tmax, prcp, snow, snwd) %>%
   summarize(trips = n()) %>%
@@ -41,15 +44,27 @@ trips_full <- trips_with_weather %>%
   mutate(prev_prcp = lag(prcp)) %>%
   mutate(prev_snow = lag(snow)) %>%
   mutate(prev_snwd = lag(snwd)) %>%
-  mutate(prev_trips = lag(trips))
+  mutate(prev_trips = lag(trips)) %>%
+  mutate(weekend = (day_of_week == "Saturday" | day_of_week == "Sunday"))
+
+trips_full_2015 <- trips_with_weather_2015 %>%
+  group_by(ymd, tmin, tmax, prcp, snow, snwd) %>%
+  summarize(trips = n()) %>%
+  ungroup() %>%
+  mutate(day_of_week = weekdays(ymd)) %>%
+  mutate(month = as.factor(month(ymd))) %>%
+  mutate(prev_prcp = lag(prcp)) %>%
+  mutate(prev_snow = lag(snow)) %>%
+  mutate(prev_snwd = lag(snwd)) %>%
+  mutate(prev_trips = lag(trips)) %>%
+  mutate(weekend = (day_of_week == "Saturday" | day_of_week == "Sunday"))
 
 # Creating the training and testing dataset
-train <- trips_full[1:(nrow(trips_full)*.8),]
-train <- train %>% filter(!is.na(prev_prcp))
-test <- anti_join(trips_full, train)
+train <- trips_full %>% filter(!is.na(prev_prcp))
+test <- trips_full_2015 %>% filter(!is.na(prev_prcp))
 
 # Creating the model matrices for the lasso calculations
-x <- model.matrix(trips ~ poly(prcp, 5), train)
+x <- model.matrix(trips ~ tmin + prev_snwd + prev_trips + prcp + day_of_week + prev_snow + snwd, train)
 y <- train$trips
 
 # Creating the model with lambda = lambda.1se
@@ -60,53 +75,23 @@ coef(cvfit_1se, s = "lambda.1se")
 cvfit_min <- cv.glmnet(x, y)
 coef(cvfit_min, s = "lambda.min")
   
-```
-
-``` {r prediction_model}
-
-# Creating new features to regress over
-trips_full <- trips_with_weather %>%
-  group_by(ymd, tmin, tmax, prcp, snow, snwd) %>%
-  summarize(trips = n()) %>%
-  ungroup() %>%
-  mutate(day_of_week = weekdays(ymd)) %>%
-  mutate(month = as.factor(month(ymd))) %>%
-  mutate(prev_prcp = lag(prcp)) %>%
-  mutate(prev_snow = lag(snow)) %>%
-  mutate(prev_snwd = lag(snwd))
-
-# Creating the training and testing dataset
-train <- trips_full[1:(nrow(trips_full)*.8),]
-train <- train %>% filter(!is.na(prev_prcp))
-test <- anti_join(trips_full, train)
-test <- test %>% filter(!is.na(prev_prcp))
-
-polynomial_power <- rep(0, 5)
-curr_max <- 0
-for(i1 in 1:4){
-  for(i2 in 1:4){
-    for(i3 in 1:4){
-      for(i4 in 1:4){
-        for(i5 in 1:4){
-          curr_model <- lm(formula = trips ~ day_of_week * poly(tmin, i1) * poly(tmax, i2) * poly(prcp, i3) * poly(snwd, i4) * poly(prev_snwd, i5), data = train)
-          test$predictions <- predict(curr_model, newdata = test)
-          curr_rsquared <- cor(test$predictions, test$trips)^2
-          if(curr_rsquared > curr_max){
-            polynomial_power[1] <- i1
-            polynomial_power[2] <- i2
-            polynomial_power[3] <- i3
-            polynomial_power[4] <- i4
-            polynomial_power[5] <-i5
-            curr_max <- curr_rsquared
-          }
-        }
-      }
-    }
-  }
-}
-
-curr_model <- lm(formula = trips ~ poly(tmin, 1) * poly(tmax, 3) * poly(prcp, 1) * poly(snwd, 1) * poly(prev_snwd, 1), data = train)
+# Evaluating a new model that we create using some of the results from our LASSO run
+curr_model <- lm(formula = trips ~ poly(tmin, 2) + prev_snwd + poly(prev_trips, 2) + prcp + weekend + prev_snow + I(snwd^5) + poly(snwd, 3), data = train)
 test$predictions <- predict(curr_model, newdata = test)
+
+# Plotting predictions vs the actual data in 2015
+test %>%
+  gather(key = source, value = trip_num, predictions, trips) %>%
+  ggplot(aes(day(ymd), trip_num)) +
+    geom_point(aes(color = source), position = "jitter")
+
+# R-squared
 cor(test$predictions, test$trips)^2
+
+# RMSE
+sqrt(mean((test$trips - test$predictions)^2))
+
+# Saving our model to file
+save(curr_model, file = "brian_taxi_model.RData")
 
 ```
