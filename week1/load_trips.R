@@ -21,6 +21,7 @@ for (csv in csvs) {
   # so manually convert the date from a string to a datetime
   if (typeof(tmp$starttime) == "character")
     tmp <- mutate(tmp,
+<<<<<<< HEAD
                   starttime=parse_datetime(starttime, "%m/%d/%Y %H:%M"),
                   stoptime=parse_datetime(stoptime, "%m/%d/%Y %H:%M"))
 
@@ -44,6 +45,7 @@ trips_2015 <- mutate(trips_2015, gender=factor(gender, levels=c(0,1,2), labels=c
 # https://www.ncei.noaa.gov/orders/cdo/762757.csv
 # ordered from
 # http://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:USW00094728/detail
+<<<<<<< HEAD
 weather_2015 <- read.table('weather_2015.csv', header=T, sep=',')
 
 # extract just a few columns, lowercase column names, and parse dates
