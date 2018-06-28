@@ -1,0 +1,67 @@
+---
+title: "IST_exercises"
+author: "Brian Hernandez"
+date: "June 27, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+
+magnets <- read.csv("magnets.csv")
+
+```
+
+##Chapter 12 Questions
+
+```{r chapter_12}
+
+# Question 12.1.1
+  # Null_hypo == 0
+  # Alt_hypo != 0
+
+# Question 12.1.2
+  # We would test the hypothesis only with the observations where the patients were given the placebo: active == 1
+
+# Question 12.1.3
+test_data <- magnets %>%
+  mutate(active_binary = ifelse(active == '"1"', 1, 0)) %>%
+  filter(active_binary == 0)
+t.test(test_data$change)
+
+```
+
+##Chapter 13 Questions
+
+``` {r chapter_13, warning=FALSE}
+
+# Question 13.1.1
+t.test(score1 ~ active, magnets)
+
+# Question 13.1.2
+var.test(score1 ~ active, magnets)
+
+# Question 13.1.3
+t.test(change ~ active, magnets)
+
+# Question 13.1.4
+var.test(change ~ active, magnets)
+
+# Additional Question 1
+magnets %>%
+  ggplot(aes(change, fill = active)) +
+  geom_histogram(position = "dodge", bins = 10) +
+  scale_x_log10()
+
+# Additional Question 2
+mag_std <- sd(magnets$change)
+
+magnets %>%
+  group_by(active) %>%
+  summarize(count = n(), avg = mean(change)) %>%
+  summarize(cohen_d = (first(avg) - last(avg)) / mag_std)
+  
+
+```

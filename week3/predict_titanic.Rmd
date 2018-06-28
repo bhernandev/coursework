@@ -1,0 +1,137 @@
+---
+title: "predict_titanic"
+author: "Brian Hernandez"
+date: "June 26, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(stargazer)
+library(caret)
+library(e1071)
+library(pROC)
+
+titanic <- read.csv("titanic_train.csv")
+
+```
+
+The odds of surviving the shipwreck are `r mean(titanic$Survived)`.
+
+#Logit Models
+
+##Gender
+
+```{r logit_gender}
+
+logit_gender <- titanic %>% glm(formula = Survived ~ Sex, family = "binomial")
+summary(logit_gender)
+
+exp(coef(logit_gender))
+
+```
+
+The odds ratio of surviving if you are a male is reduced by `r (1 - exp(coef(logit_gender)["Sexmale"])) * 100` percent.
+
+##Age
+
+``` {r logit_age}
+
+logit_age <- titanic %>% glm(formula = Survived ~ Sex + Age, family = "binomial")
+summary(logit_age)
+
+exp(coef(logit_age))
+
+```
+
+Age does not have a statistically significant effect on the odds of survival. If it were statistically significant it would reduce the odds ratio of surviving by `r (1 - exp(coef(logit_age)["Age"])) * 100` percent.
+
+##Passenger Class
+
+``` {r logit_class}
+
+logit_class <- titanic %>% glm(formula = Survived ~ Sex + Pclass, family = "binomial")
+summary(logit_class)
+
+exp(coef(logit_class))
+
+```
+
+Passenger class has a statistically effect on the odds of survival. A change in passenger class reduces the odds ratio of surviving by `r (1 - exp(coef(logit_class)["Pclass"])) * 100` percent.
+
+##Passenger Class as a Factor
+
+``` {r logit_cfactor}
+
+logit_cfactor <- titanic %>% glm(formula = Survived ~ Sex + as.factor(Pclass), family = "binomial")
+summary(logit_cfactor)
+
+exp(coef(logit_cfactor))
+
+```
+
+Relative to the first class, being second class reduces your odds ratio of surviving by `r (1 - exp(coef(logit_cfactor)["as.factor(Pclass)2"])) * 100` percent, while being third class reduces your odds ratio of surviving even further: `r (1 - exp(coef(logit_cfactor)["as.factor(Pclass)3"])) * 100` percent lower than first class to be precise.
+
+##Fare
+
+``` {r logit_fare}
+
+logit_fare <- titanic %>% glm(formula = Survived ~ Sex + as.factor(Pclass) + Fare, family = "binomial")
+summary(logit_fare)
+
+exp(coef(logit_fare))
+
+```
+
+Fare is not a significant determinant of survival when controlling for both gender and passenger class. However this may result from the fact that both passenger class and fare are highly correlated variables. This creates the expectation that if the regression were to be done over just gender and fare, the coefficient for fare would likely be significant.
+
+##Jack and Rose
+
+``` {r jack_rose}
+
+logit_pred <- titanic %>% glm(formula = Survived ~ Sex + as.factor(Pclass) + Fare, family = "binomial")
+summary(logit_fare)
+
+passengers <- data.frame(Sex = c("male", "female"), Pclass = c(3, 1), Fare = c(5, 500))
+
+passengers$predictions <- predict(logit_pred, passengers, type="response")
+
+```
+
+The estimated chance of survival for Jack is `r passengers$predictions[1] * 100` percent, while the estimated chance of survival for Rose is `r passengers$predictions[2] * 100` percent.
+
+##Free Form Logit Model
+
+``` {r logit_model}
+
+set.seed(3007)
+
+titanic$age_bin <- cut(titanic$Age, 10, labels = FALSE) %>%
+  ifelse(is.na(.), "missing", .)
+
+train <- sample_n(titanic, nrow(titanic) * 0.9)
+test <- anti_join(titanic, train)
+
+logit_model <- train %>% glm(formula = Survived ~ Sex + as.factor(Pclass) + age_bin, family = "binomial")
+train$pred <- predict(logit_model, data = train, type = "response")
+test$pred <- predict(logit_model, newdata = test, type="response")
+
+cutoff <- 0.7
+train$pred_surv <- ifelse(train$pred >= cutoff, 1, 0)
+test$pred_surv <- ifelse(test$pred >= cutoff, 1, 0)
+
+logit_roc <- roc(train$Survived, train$pred_surv)
+
+train$sens <- logit_roc$sensitivities[1:3]
+train$spec <- logit_roc$specificities[1:3]
+
+ggplot(train, aes(x = spec, y = sens)) +
+  geom_line()
+
+confusionMatrix(as.factor(train$pred_surv), as.factor(train$Survived))
+
+```
+

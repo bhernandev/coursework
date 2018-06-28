@@ -5,4 +5,5 @@
 .ipynb_checkpoints
 *.swp
 data/*
-
+week2/*.csv
+week2/*.RData
