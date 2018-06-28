@@ -62,6 +62,5 @@ magnets %>%
   group_by(active) %>%
   summarize(count = n(), avg = mean(change)) %>%
   summarize(cohen_d = (first(avg) - last(avg)) / mag_std)
-  
 
 ```

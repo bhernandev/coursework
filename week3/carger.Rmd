@@ -1,0 +1,93 @@
+---
+title: "carger"
+author: "Brian Hernandez"
+date: "June 28, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+
+carger <- read.csv("carger.csv")
+
+```
+
+## Difference in Differences: Card & Kreuger
+
+### Question A:
+**EMPFT**: Employers less likely to hire full time min wage workers  
+**EMPPT**: More people applying to part time positions  
+**WAGEST**: Minimum of this feature will by definition change  
+**INCTIME**: Managers try to offset a supposed profit decrease  
+**FIRSTINC**: Managers try to offset a supposed profit decrease  
+**PCTAFF**: Trivial  
+**MEALS**: Managers try to offset a supposed profit decrease  
+**PSODA**: Continual growth  
+
+```{r computations}
+
+# Question B:
+colnames(carger)[colnames(carger) == "FIRSTIN2"] <- "FIRSTINC2"
+
+for(col in colnames(carger)[11:27]){
+  col_complement <- grep(paste("^", col, "[2]", sep=""), colnames(carger))
+  if(!is.na(col_complement[1])){
+    carger[[paste(col, "DIFF", sep="_")]] <- as.vector((carger[col_complement] - carger[col])[,1])
+  }
+}
+
+# Means by State
+pa_means <- carger %>% 
+  filter(STATE == 0) %>%
+  select(47:61) %>%
+  colMeans(na.rm=TRUE)
+
+nj_means <- carger %>% 
+  filter(STATE == 1) %>%
+  select(47:61) %>%
+  colMeans(na.rm=TRUE)
+
+# T-Tests by State
+pa_carger <- carger %>% filter(STATE == 0)
+nj_carger <- carger %>% filter(STATE == 1)
+
+t.test(pa_carger$WAGE_ST_DIFF)
+t.test(pa_carger$EMPFT_DIFF) 
+t.test(pa_carger$EMPPT_DIFF) 
+
+t.test(nj_carger$WAGE_ST_DIFF)
+t.test(nj_carger$EMPFT_DIFF) 
+t.test(nj_carger$EMPPT_DIFF) 
+
+
+# Question C:
+did_wage <- lm(formula = WAGE_ST_DIFF ~ as.factor(STATE), data=carger)
+summary(did_wage)
+
+did_empft <- lm(formula = EMPFT_DIFF ~ as.factor(STATE), data=carger)
+summary(did_empft)
+
+did_emppt <- lm(formula = EMPPT_DIFF ~ as.factor(STATE), data=carger)
+summary(did_emppt)
+
+
+# Question D:
+# This data is in support of the theory that there is an impact on employment when minimum wage is changed. However, this conclusion can only be made with the possibly improper assumption that pennsylvania and new jersey are similar enough for comparison and that they have "parallel trends"
+
+
+# Question E:
+carger <- carger %>%
+  mutate(GAP = ((5.05>WAGE_ST)*(5.05 - WAGE_ST)/WAGE_ST))
+did_wage_gap <- lm(formula = WAGE_ST_DIFF ~ as.factor(STATE)*GAP, data=carger)
+summary(did_wage_gap)
+
+did_empft_gap <- lm(formula = EMPFT_DIFF ~ as.factor(STATE)*GAP, data=carger)
+summary(did_empft_gap)
+
+did_emppt_gap <- lm(formula = EMPPT_DIFF ~ as.factor(STATE)*GAP, data=carger)
+summary(did_emppt_gap)
+
+```
