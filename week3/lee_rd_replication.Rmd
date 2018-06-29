@@ -1,0 +1,84 @@
+---
+title: "lee_rd_replication"
+author: "Brian Hernandez"
+date: "June 29, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(rdd)
+
+lee <- read.csv('lee_rd_replication.csv')
+
+```
+
+##DWinNxt ~ DemWin
+
+```{r simple_regression}
+
+simple_regression <- lm(formula = DWinNxt ~ DemWin, data = lee)
+summary(dwin_regression)
+
+```
+
+This regression seems to give a biased estimate because we are not controlling for other variables.
+
+##Potential Controls
+**ForgnPct**: Confounding
+**GovWkPct**: Unrelated
+**BlackPct**: Confounding
+**UrbanPct**: Confounding
+**DWinPrv**: Confounding
+**YearElec**: Unrelated
+**CDNum**: Confounding as factor
+
+```{r potential_controls}
+
+controlled_regression <- lm(formula = DWinNxt ~ DemWin + ForgnPct + BlackPct + UrbanPct + DWinPrv, data = lee)
+summary(controlled_regression)
+
+```
+
+The coefficient of DemWin has decreased as a result of controlling for these variables.
+
+##Bad Controls
+Examples of bad controls for this regression would be DWinNxt, CpnFun, PoliChge, MajPty
+
+##DifDPct as a Forcing Variable
+```{r dif_d_pct}
+
+threshold <- 0
+window_size <- 10
+poly_degree <- 3
+
+RD_data <- lee %>% 
+  filter(DifDPct < threshold + window_size & DifDPct > threshold - window_size) %>%
+  mutate(is_above = ifelse(DifDPct > threshold, 1, 0)) %>%
+  mutate(is_below = (is_above + 1) %% 2)
+
+
+forced_regression <- lm(formula = DWinNxt ~ DemWin + ForgnPct + BlackPct + UrbanPct + DWinPrv + DemWin*poly(DifDPct, 3, raw=TRUE), data = RD_data)
+summary(forced_regression)
+RD_data$predictions <- predict(forced_regression, RD_data)
+
+RD_data %>%
+  ggplot(aes(x = DifDPct, y = predictions)) +
+  geom_point() +
+  geom_smooth(aes(color=as.factor(DemWin)))
+
+```
+
+The coefficients when compared to (b) and (c) are a lot smaller. This supports the hypothesis that the actual incumbency effect is smaller than our simple regression.
+
+##Using rdd Library
+```{r rdd_regression}
+
+rdd_regression <- RDestimate(formula = DWinNxt ~ DifDPct, data=lee)
+summary(rdd_regression)
+plot(rdd_regression)
+
+```
