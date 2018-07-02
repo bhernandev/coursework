@@ -1,0 +1,90 @@
+---
+title: "titanic_trees"
+author: "Brian Hernandez"
+date: "July 2, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tree)
+
+titanic_train <- read.csv("titanic_train.csv")
+titanic_test <- read.csv("titanic_test.csv")
+
+```
+
+##Background Statistics
+
+The percentage of passengers, in our train data, that survived is `r mean(titanic_train$Survived)`.
+
+The variables that seem to be worth exploring are Pclass, Sex, Age, and Fare
+
+##Titanic Tree Basic
+
+```{r titanic_tree_basic}
+
+titanic_tree_basic <- tree(factor(Survived) ~ Age + Sex, titanic_train)
+summary(titanic_tree_basic)
+print(titanic_tree_basic)
+plot(titanic_tree_basic)
+text(titanic_tree_basic, pretty=0)
+
+```
+
+The decision tree places a high priority on the gender and has set a threshold of 13 on age.
+
+##Titanic Tree with Passenger Class
+
+
+```{r titanic_tree_pclass}
+
+titanic_tree_pclass <- tree(factor(Survived) ~ Age + Sex + factor(Pclass), titanic_train)
+summary(titanic_tree_pclass)
+print(titanic_tree_pclass)
+plot(titanic_tree_pclass)
+text(titanic_tree_pclass, pretty=0)
+
+```
+
+The decision tree looks similar except for the fact that it places a relatively high emphasis on the Pclass as a factor. There seems to be a lot of representation of being Pclass 3 and not surviving.
+
+##Titanic Tree Free Form
+
+```{r titanic_tree_free}
+
+titanic_tree_free <- tree(factor(Survived) ~ Age + Sex + factor(Pclass) + Fare, titanic_train)
+summary(titanic_tree_free)
+print(titanic_tree_free)
+plot(titanic_tree_free)
+text(titanic_tree_free, pretty=0)
+
+```
+
+This decision tree also looks similar except for the fact that it takes into account the Fare of the passenger which also seems to be highly indicative of survival. This is reflected in the Misclassifcation error rate which dropped by 2 percent.
+
+##Titanic Tree Testing
+
+```{r titanic_testing}
+
+set.seed(420)
+
+titanic_tree <- tree(factor(Survived) ~ Age + Sex + factor(Pclass) + factor(SibSp) + Fare, titanic_train)
+
+cv.tree(titanic_tree, FUN = prune.misclass)
+pruned_tree <- prune.misclass(titanic_tree, best=7)
+
+titanic_test$predictions <- predict(pruned_tree, newdata = titanic_test, type = "class")
+summary(pruned_tree)
+print(pruned_tree)
+plot(pruned_tree)
+text(pruned_tree, pretty=0)
+
+titanic_test %>%
+  select(PassengerId, Survived = predictions) %>%
+  write.csv("./Submission.csv", row.names = FALSE)
+
+```
