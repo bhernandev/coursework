@@ -1,0 +1,45 @@
+---
+title: "historical_trip_times"
+author: "Brian Hernandez"
+date: "July 6, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+
+load('trips-2014.RData')
+
+```
+
+#Creating a Function for Historical Trip Times
+
+```{r historical_function}
+
+historical_trip_time <- function(trip_dataframe, station_1, station_2){
+  return_df <- trip_dataframe %>%
+    filter(start_station_name == station_1 & end_station_name == station_2) %>%
+    mutate(day = wday(starttime, label = TRUE), hour = hour(starttime)) %>%
+    group_by(day, hour) %>%
+    summarize(trips = n(), avg = mean(tripduration), med = median(tripduration), std = sd(tripduration), upper = quantile(tripduration, 0.75), lower = quantile(tripduration, 0.25))
+  return(return_df)
+}
+
+```
+
+#Running the Function
+
+```{r running_function}
+
+plot_df <- historical_trip_time(trips, "8 Ave & W 31 St", "E 43 St & Vanderbilt Ave")
+
+ggplot(plot_df) +
+  geom_ribbon(aes(x=hour, ymin=avg-std, ymax=avg+std), alpha=0.5) +
+  geom_point(aes(hour, avg)) +
+  facet_wrap(~day)
+
+```

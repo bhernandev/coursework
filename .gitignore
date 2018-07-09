@@ -9,4 +9,6 @@ week2/*.csv
 week2/*.RData
 week3/*.csv
 week4/*.csv
+week4/*.tsv
+week4/*.RData
 virtualenv/

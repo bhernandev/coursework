@@ -1,0 +1,148 @@
+---
+title: "citibike_geo"
+author: "Brian Hernandez"
+date: "July 5, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(rgeos)
+library(tidyverse)
+library(lubridate)
+library(tigris)
+library(dplyr)
+library(leaflet)
+library(sp)
+library(ggmap)
+library(maptools)
+library(broom)
+library(httr)
+library(rgdal)
+
+load('trips-2014.RData')
+
+```
+
+#Data Manipulation
+
+```{r data_manipulation}
+
+start_stations <- trips %>%
+  filter(month(starttime) == 7) %>%
+  select(name = start_station_name, lat = start_station_latitude,lon = start_station_longitude) %>%
+  distinct()
+end_stations <- trips %>%
+  filter(month(starttime) == 7) %>%
+  select(name = end_station_name, lat = end_station_latitude, lon = end_station_longitude) %>%
+  distinct()
+
+stations <- rbind(start_stations, end_stations) %>%
+  distinct()
+
+```
+
+#Using ggmap
+
+```{r using_ggmap}
+
+nyc_map <- get_map(location = c(lon = -74.00, lat = 40.71), maptype = "terrain", zoom = 11)
+ggmap(nyc_map) +
+  geom_point(data = stations, aes(x = lon, y = lat))
+
+```
+
+#Using leaflet
+
+```{r using_leaflet}
+
+leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(~lon, ~lat, popup = ~name, radius = 4, stroke = FALSE, fillOpacity = 0.5, color = "navy", data = stations) %>%
+  addProviderTiles("CartoDB.Positron")
+
+```
+
+#Spatial Join with Pediacities NYC Neighborhood Data
+
+```{r spatial_join_pedia}
+
+#Downloading the neighborhood data via GET request
+r <- GET('http://data.beta.nyc//dataset/0ff93d2d-90ba-457c-9f7e-39e47bf2ac5f/resource/35dd04fb-81b3-479b-a074-a27a37888ce7/download/d085e2f8d0b54d4590b1e7d1f35594c1pediacitiesnycneighborhoods.geojson')
+nyc_neighborhoods <- readOGR(content(r,'text'), 'OGRGeoJSON', verbose = F)
+
+stations <- rbind(start_stations, end_stations) %>% dist
+stations_spdf <- stations
+coordinates(stations_spdf) <- ~lon + lat
+proj4string(stations_spdf) <- proj4string(nyc_neighborhoods)
+matches <- over(stations_spdf, nyc_neighborhoods)
+stations <- cbind(stations, matches)
+
+station_count <- stations %>%
+  group_by(neighborhood) %>%
+  summarize(num = n())
+
+```
+
+#Unique Stations per Neighborhood Using ggmap
+
+```{r unique_ggmap}
+
+plot_data <- tidy(nyc_neighborhoods, region = "neighborhood") %>%
+  left_join(., station_count, by=c("id" = "neighborhood")) %>%
+  filter(!is.na(num))
+
+nyc_map <- get_map(location = c(lon = -74.00, lat = 40.71), maptype = "terrain", zoom = 11)
+ggmap(nyc_map) +
+  geom_polygon(data = plot_data, aes(x=long, y=lat, group=group, fill=num), alpha=0.75)
+
+```
+
+#Unique Stations per Neighborhood Using leaflet
+
+```{r unique_leaflet}
+
+map_data <- geo_join(nyc_neighborhoods, station_count, "neighborhood", "neighborhood")
+
+pal <- colorNumeric(palette = "RdBu", domain = range(map_data@data$num, na.rm=TRUE))
+
+leaflet(map_data) %>%
+  addTiles() %>%
+  addPolygons(fillColor = ~pal(num), popup = ~paste(num)) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  setView(-73.98, 40.75, zoom = 13)
+
+```
+
+#Total Trips From Each Station Per Hour of July 14th
+
+```{r station_totals}
+
+stations_0714 <- trips %>%
+  filter(date(starttime) == "2014-07-14") %>%
+  mutate(hour = hour(starttime)) %>%
+  select(name = start_station_name, lat = start_station_latitude, lon = start_station_longitude, hour)
+
+stations_t_spdf <- stations_0714
+coordinates(stations_t_spdf) <- ~lon + lat
+proj4string(stations_t_spdf) <- proj4string(nyc_neighborhoods)
+matches_t <- over(stations_t_spdf, nyc_neighborhoods)
+stations_0714 <- cbind(stations_0714, matches_t)
+
+trip_totals <- stations_0714 %>%
+  filter(hour %in% c(9, 13, 17, 22)) %>%
+  group_by(neighborhood, hour) %>%
+  summarize(num = n())
+
+plot_data_totals <- tidy(nyc_neighborhoods, region = "neighborhood") %>%
+  left_join(., trip_totals, by=c("id" = "neighborhood")) %>%
+  filter(!is.na(num))
+
+nyc_map <- get_map(location = c(lon = -74.00, lat = 40.71), maptype = "terrain", zoom = 11)
+ggmap(nyc_map) +
+  geom_polygon(data = plot_data_totals, aes(x=long, y=lat, group=group, fill=num), alpha=0.75) +
+  facet_wrap(~hour)
+
+```
